@@ -46,6 +46,37 @@ function HostDashboard() {
   const [pwd, setPwd] = useState(true);
   const [keepAwake, setKeepAwake] = useState(true);
   const [sessionKey, setSessionKey] = useState<string>("Connecting...");
+  const [files, setFiles] = useState<any[]>(initialFiles);
+
+  const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files).map((file) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        name: file.name,
+        size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
+        pct: 0,
+        Icon: FileText,
+        fileObj: file, // Keep actual file for future upload/webrtc
+      }));
+      setFiles((prev) => [...prev, ...newFiles]);
+    }
+  };
+
+  useEffect(() => {
+    if (sessionKey && sessionKey !== "Connecting..." && sessionKey !== "Error creating session") {
+      const socket = getSocket();
+      socket.emit("host:update_metadata", {
+        sessionId: sessionKey,
+        metadata: files.map(f => ({
+          id: f.id.toString(),
+          name: f.name,
+          size: f.size,
+          type: f.fileObj?.type || 'application/octet-stream',
+          path: f.name,
+        })),
+      });
+    }
+  }, [files, sessionKey]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -77,9 +108,10 @@ function HostDashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CountdownBadge seconds={580} />
-          <button className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs hover:bg-white/5">
+          <label className="glass inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-xs hover:bg-white/5">
             <Plus className="h-3.5 w-3.5" /> Add files
-          </button>
+            <input type="file" multiple className="hidden" onChange={handleAddFiles} />
+          </label>
         </div>
       </div>
 
@@ -108,11 +140,11 @@ function HostDashboard() {
             <div className="mb-3 flex items-center justify-between px-2">
               <p className="text-sm font-semibold">Transferring</p>
               <p className="text-xs text-muted-foreground">
-                {initialFiles.length} files · chunked
+                {files.length} files · chunked
               </p>
             </div>
             <ul className="space-y-2">
-              {initialFiles.map((f) => (
+              {files.map((f) => (
                 <li
                   key={f.id}
                   className="group rounded-2xl bg-white/[0.03] p-3 ring-1 ring-white/5 transition hover:bg-white/[0.06] sm:p-4"

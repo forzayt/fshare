@@ -19,7 +19,7 @@ export const Route = createFileRoute("/join")({
       { title: "Join Session — Fshare" },
       {
         name: "description",
-        content: "Scan the QR or enter a session key to join an Fshare transfer.",
+        content: "Enter a session key to join an Fshare transfer.",
       },
     ],
   }),
@@ -50,14 +50,14 @@ function JoinSession() {
           Connect to a <span className="gradient-text">peer</span>
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Scan the host's QR or paste their session key.
+          Enter the host's session key to connect.
         </p>
       </div>
 
       {!joined ? (
-        <div className="mt-8 grid gap-5 sm:grid-cols-2">
-          {/* QR scanner */}
-          <div className="glass gradient-border relative overflow-hidden rounded-3xl p-5">
+        <div className="mt-8 flex justify-center">
+          {/* QR scanner - Hidden for now */}
+          {/* <div className="glass gradient-border relative overflow-hidden rounded-3xl p-5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">QR scanner</p>
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary ring-1 ring-primary/30">
@@ -78,10 +78,10 @@ function JoinSession() {
             <button className="mt-4 w-full rounded-2xl bg-white/5 px-4 py-2.5 text-sm font-medium ring-1 ring-white/5 hover:bg-white/10">
               Use rear camera
             </button>
-          </div>
+          </div> */}
 
           {/* Session key */}
-          <div className="glass gradient-border rounded-3xl p-5">
+          <div className="glass gradient-border w-full max-w-sm rounded-3xl p-5">
             <p className="text-sm font-semibold">Session key</p>
             <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-3 ring-1 ring-white/5 focus-within:ring-primary/50">
               <KeyRound className="h-4 w-4 text-primary" />

@@ -14,6 +14,7 @@ import {
   ArrowRight,
   CloudOff,
   Wifi,
+  KeyRound,
 } from "lucide-react";
 import { useState } from "react";
 import { QrCodeArt } from "@/components/QrCodeArt";
@@ -50,8 +51,8 @@ function Landing() {
               <br /> Instantly.
             </h1>
             <p className="mt-4 max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
-              Direct device-to-device transfer in your browser. Drop a file, share a
-              QR — done. Nothing ever lands on a server.
+              Direct device-to-device transfer in your browser. Drop a file, share the
+              link — done. Nothing ever lands on a server.
             </p>
 
             <div className="mt-7 flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -60,21 +61,21 @@ function Landing() {
                 className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[image:var(--gradient-primary)] px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition-transform hover:scale-[1.02] sm:w-auto"
               >
                 <Zap className="h-4 w-4" />
-                Create Secure Session
+                Create Server
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
                 to="/join"
                 className="glass inline-flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-semibold text-foreground hover:bg-white/5 sm:w-auto"
               >
-                <QrCode className="h-4 w-4 text-primary" />
-                Join with Key
+                <KeyRound className="h-4 w-4 text-primary" />
+                Join Server 
               </Link>
             </div>
           </div>
 
-          {/* Drag and drop + QR */}
-          <div className="mt-12 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+          {/* Drag and drop */}
+          {/* <div className="mt-12 flex justify-center">
             <label
               onDragOver={(e) => {
                 e.preventDefault();
@@ -85,7 +86,7 @@ function Landing() {
                 e.preventDefault();
                 setDrag(false);
               }}
-              className={`gradient-border relative flex min-h-[260px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-3xl p-8 text-center transition-all sm:min-h-[340px] ${
+              className={`gradient-border relative flex min-h-[260px] w-full max-w-2xl cursor-pointer flex-col items-center justify-center overflow-hidden rounded-3xl p-8 text-center transition-all sm:min-h-[340px] ${
                 drag ? "glass-strong glow-lg" : "glass"
               }`}
             >
@@ -112,23 +113,7 @@ function Landing() {
                 Up to 10 GB per session · End-to-end encrypted
               </p>
             </label>
-
-            <div className="glass gradient-border flex flex-col items-center justify-center rounded-3xl p-6 text-center">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                Instant connect
-              </p>
-              <p className="mt-1 font-semibold">Scan the session QR</p>
-              <div className="mt-5 rounded-2xl p-2 glow-primary">
-                <QrCodeArt size={200} value="FSHARE-LANDING" />
-              </div>
-              <p className="mt-4 font-mono text-sm text-primary">
-                fshare.io/<span className="text-foreground">A4N9-K72X</span>
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Session key valid for 10 minutes
-              </p>
-            </div>
-          </div>
+          </div> */}
         </div>
       </section>
 

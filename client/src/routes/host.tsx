@@ -26,7 +26,7 @@ export const Route = createFileRoute("/host")({
       {
         name: "description",
         content:
-          "Manage your live Fshare session: monitor transfers, share QR, control expiry and security.",
+          "Manage your live Fshare session: monitor transfers, share the link, control expiry and security.",
       },
     ],
   }),
@@ -175,14 +175,15 @@ function HostDashboard() {
         {/* Share panel */}
         <aside className="space-y-5">
           <div className="glass gradient-border rounded-3xl p-5 text-center">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            {/* QR Scanner hidden */}
+            {/* <p className="text-xs uppercase tracking-wider text-muted-foreground">
               Scan to join
             </p>
             <div className="mt-4 flex justify-center">
               <div className="rounded-2xl glow-primary">
                 <QrCodeArt size={220} value={sessionKey} />
               </div>
-            </div>
+            </div> */}
             <p className="mt-4 text-xs text-muted-foreground">Session key</p>
             <div className="mt-1 flex items-center justify-center gap-2">
               <code className="rounded-lg bg-white/5 px-3 py-1.5 font-mono text-sm tracking-wider text-primary ring-1 ring-white/5">

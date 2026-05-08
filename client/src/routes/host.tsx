@@ -45,6 +45,7 @@ function HostDashboard() {
   const [devices, setDevices] = useState<{ id: string }[]>([]);
   const [speed, setSpeed] = useState("0 MB/s");
   const [sent, setSent] = useState("0 MB");
+  const [copied, setCopied] = useState(false);
 
   const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -93,10 +94,16 @@ function HostDashboard() {
       setDevices(prev => [...prev, { id: data.joinerId }]);
     };
 
+    const onJoinerDisconnected = (data: { joinerId: string }) => {
+      setDevices(prev => prev.filter(d => d.id !== data.joinerId));
+    };
+
     socket.on("host:joiner_connected", onJoinerConnected);
+    socket.on("host:joiner_disconnected", onJoinerDisconnected);
 
     return () => {
       socket.off("host:joiner_connected", onJoinerConnected);
+      socket.off("host:joiner_disconnected", onJoinerDisconnected);
       if (currentSessionId) {
         socket.emit("host:shutdown", { sessionId: currentSessionId });
       }
@@ -291,10 +298,20 @@ function HostDashboard() {
                 {sessionKey}
               </code>
               <button
-                className="rounded-lg bg-primary/10 p-2 text-primary ring-1 ring-primary/30 hover:bg-primary/20"
+                className="rounded-lg bg-primary/10 p-2 text-primary ring-1 ring-primary/30 hover:bg-primary/20 transition-colors"
                 aria-label="Copy session key"
+                onClick={() => {
+                  navigator.clipboard.writeText(sessionKey).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
               >
-                <Copy className="h-4 w-4" />
+                {copied ? (
+                  <span className="text-xs font-semibold px-0.5">✓</span>
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
               </button>
             </div>
             <button className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[image:var(--gradient-primary)] px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)]">

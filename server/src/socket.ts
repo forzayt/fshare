@@ -139,17 +139,19 @@ export function setupSocket(io: Server) {
       // Check if it was a host
       const hostedSession = sessionManager.getSessionByHostSocketId(socket.id);
       if (hostedSession) {
-        // Host disconnected
         console.log(`[Session] Host disconnected. Closing session ${hostedSession.id}`);
         socket.to(`session_${hostedSession.id}`).emit('session:closed');
         sessionManager.removeSession(hostedSession.id);
         return;
       }
 
-      // Check if it was a joiner (we'd have to search all sessions or rely on room disconnections)
-      // Since Socket.IO automatically handles leaving rooms, we just need to notify the host if needed.
-      // But we can also iterate sessions to clean up joiners:
-      // (Optimization: store a map of socketId -> sessionId for joiners)
+      // Check if it was a joiner — find their session and notify the host
+      const joinerSession = sessionManager.getSessionByJoinerSocketId(socket.id);
+      if (joinerSession) {
+        console.log(`[Session] Joiner ${socket.id} disconnected from session ${joinerSession.id}`);
+        sessionManager.leaveSession(joinerSession.id, socket.id);
+        io.to(joinerSession.hostSocketId).emit('host:joiner_disconnected', { joinerId: socket.id });
+      }
     });
   });
 }

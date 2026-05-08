@@ -31,7 +31,7 @@ export const Route = createFileRoute("/join")({
 function JoinSession() {
   const [key, setKey] = useState("");
   const [joined, setJoined] = useState(false);
-  const [selected, setSelected] = useState<number[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [files, setFiles] = useState<any[]>([]);
 
@@ -96,10 +96,15 @@ function JoinSession() {
   }, [joined, key]);
 
   const handleJoin = () => {
-    if (!key) return;
+    if (!key.trim()) return;
     setError("");
+    // Normalise: strip dashes and reformat as XXXX-XXXX-XXXX
+    const raw = key.replace(/-/g, "").toUpperCase();
+    const sessionId = raw.length === 12
+      ? `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`
+      : raw;
     const socket = getSocket();
-    socket.emit("joiner:join", { sessionId: key }, (res: any) => {
+    socket.emit("joiner:join", { sessionId }, (res: any) => {
       if (res.success) {
         setJoined(true);
         if (res.metadata) {
@@ -125,7 +130,7 @@ function JoinSession() {
     }
   };
 
-  const toggle = (id: number) =>
+  const toggle = (id: string) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   return (
@@ -152,7 +157,10 @@ function JoinSession() {
               <input
                 value={key}
                 onChange={(e) => setKey(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === "Enter" && handleJoin()}
                 placeholder="A4N9-K72X-Q3LM"
+                autoComplete="off"
+                spellCheck={false}
                 className="flex-1 bg-transparent font-mono text-sm tracking-wider outline-none placeholder:text-muted-foreground/60"
               />
             </div>

@@ -102,7 +102,7 @@ function HostDashboard() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
-                      <f.Icon className="h-4.5 w-4.5 text-primary" />
+                      <f.Icon className="h-4 w-4 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">

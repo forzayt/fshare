@@ -15,9 +15,10 @@ import {
   Plus,
   Share2,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QrCodeArt } from "@/components/QrCodeArt";
 import { CountdownBadge } from "@/components/CountdownBadge";
+import { getSocket } from "@/lib/socket";
 
 export const Route = createFileRoute("/host")({
   head: () => ({
@@ -44,7 +45,23 @@ function HostDashboard() {
   const [paused, setPaused] = useState(false);
   const [pwd, setPwd] = useState(true);
   const [keepAwake, setKeepAwake] = useState(true);
-  const sessionKey = "A4N9-K72X-Q3LM";
+  const [sessionKey, setSessionKey] = useState<string>("Connecting...");
+
+  useEffect(() => {
+    const socket = getSocket();
+    
+    socket.emit("host:start", (res: any) => {
+      if (res.success) {
+        setSessionKey(res.sessionId);
+      } else {
+        setSessionKey("Error creating session");
+      }
+    });
+
+    return () => {
+      socket.emit("host:shutdown", { sessionId: sessionKey });
+    };
+  }, []);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:py-10">

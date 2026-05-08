@@ -166,11 +166,24 @@ html {
     background-image: var(--gradient-hero);
   }
   .bg-grid {
+    position: relative;
+  }
+  .bg-grid::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
     background-image:
       linear-gradient(oklch(1 0 0 / 0.04) 1px, transparent 1px),
       linear-gradient(90deg, oklch(1 0 0 / 0.04) 1px, transparent 1px);
     background-size: 36px 36px;
+    -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 0%, #000 30%, transparent 80%);
     mask-image: radial-gradient(ellipse 60% 50% at 50% 0%, #000 30%, transparent 80%);
+  }
+  .bg-grid > * {
+    position: relative;
+    z-index: 1;
   }
   .neon-progress {
     background: linear-gradient(90deg, oklch(0.78 0.18 210), oklch(0.65 0.22 295));

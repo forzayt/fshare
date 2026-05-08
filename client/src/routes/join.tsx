@@ -10,9 +10,10 @@ import {
   Camera,
   CheckCircle2,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CountdownBadge } from "@/components/CountdownBadge";
 import { getSocket } from "@/lib/socket";
+import { WebRTCJoiner } from "@/lib/webrtcJoiner";
 
 export const Route = createFileRoute("/join")({
   head: () => ({
@@ -56,6 +57,44 @@ function JoinSession() {
     };
   }, []);
 
+  const webrtcRef = useRef<WebRTCJoiner | null>(null);
+
+  useEffect(() => {
+    if (joined && key) {
+      const socket = getSocket();
+      const rtcJoiner = new WebRTCJoiner(socket, key, 
+        (fileId, receivedBytes, totalBytes) => {
+          setFiles(prev => prev.map(f => {
+            if (f.id === fileId) {
+              return { ...f, pct: Math.round((receivedBytes / totalBytes) * 100), ready: false };
+            }
+            return f;
+          }));
+        }, 
+        (fileId, blob, meta) => {
+          // Trigger download
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = url;
+          a.download = meta.name;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          
+          setFiles(prev => prev.map(f => f.id === fileId ? { ...f, pct: 100, ready: true } : f));
+        }
+      );
+      
+      webrtcRef.current = rtcJoiner;
+      
+      return () => {
+        rtcJoiner.destroy();
+        webrtcRef.current = null;
+      };
+    }
+  }, [joined, key]);
+
   const handleJoin = () => {
     if (!key) return;
     setError("");
@@ -64,12 +103,26 @@ function JoinSession() {
       if (res.success) {
         setJoined(true);
         if (res.metadata) {
-          setFiles(res.metadata);
+          setFiles(res.metadata.map((f: any) => ({ ...f, pct: 0 })));
         }
       } else {
         setError(res.error || "Failed to join session");
       }
     });
+  };
+
+  const handleDownloadSelected = () => {
+    if (webrtcRef.current) {
+      selected.forEach(fileId => {
+        webrtcRef.current?.requestFile(fileId.toString());
+      });
+    }
+  };
+
+  const handleDownloadSingle = (fileId: string) => {
+    if (webrtcRef.current) {
+      webrtcRef.current.requestFile(fileId.toString());
+    }
   };
 
   const toggle = (id: number) =>
@@ -174,12 +227,26 @@ function JoinSession() {
                       <Icon className="h-4 w-4 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{f.name}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-medium">{f.name}</p>
+                        {f.pct !== undefined && <span className="shrink-0 text-xs text-muted-foreground">{f.pct}%</span>}
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        {f.size} · {f.ready !== false ? "Ready" : "Resumable"}
+                        {f.size} · {f.pct === 100 ? "Ready" : f.pct > 0 ? "Downloading" : "Waiting"}
                       </p>
+                      {f.pct > 0 && f.pct < 100 && (
+                        <div className="relative mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
+                          <div
+                            className="neon-progress h-full rounded-full transition-all"
+                            style={{ width: `${f.pct}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <button className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-medium ring-1 ring-white/5 hover:bg-white/10">
+                    <button 
+                      onClick={() => handleDownloadSingle(f.id)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-medium ring-1 ring-white/5 hover:bg-white/10"
+                    >
                       <Download className="h-3.5 w-3.5 text-primary" />
                       Get
                     </button>
@@ -194,7 +261,13 @@ function JoinSession() {
             </ul>
           </div>
 
-          <button className="sticky bottom-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[image:var(--gradient-primary)] px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow-lg)]">
+          <button 
+            onClick={handleDownloadSelected}
+            disabled={selected.length === 0}
+            className={`sticky bottom-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow-lg)] transition-all ${
+              selected.length > 0 ? "bg-[image:var(--gradient-primary)] hover:scale-[1.01]" : "bg-white/10 text-muted-foreground cursor-not-allowed"
+            }`}
+          >
             <Download className="h-4 w-4" />
             Download {selected.length} file{selected.length === 1 ? "" : "s"}
           </button>

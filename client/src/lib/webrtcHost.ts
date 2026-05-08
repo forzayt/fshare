@@ -1,0 +1,137 @@
+import { Socket } from "socket.io-client";
+
+const CHUNK_SIZE = 64 * 1024; // 64 KB
+
+export class WebRTCHost {
+  private peers: Map<string, RTCPeerConnection> = new Map();
+  private dataChannels: Map<string, RTCDataChannel> = new Map();
+  private socket: Socket;
+  private sessionId: string;
+  private onProgress: (fileId: string, joinerId: string, sentBytes: number, totalBytes: number) => void;
+
+  constructor(
+    socket: Socket, 
+    sessionId: string,
+    onProgress: (fileId: string, joinerId: string, sentBytes: number, totalBytes: number) => void
+  ) {
+    this.socket = socket;
+    this.sessionId = sessionId;
+    this.onProgress = onProgress;
+
+    this.socket.on("webrtc:answer", this.handleAnswer);
+    this.socket.on("webrtc:ice_candidate", this.handleIceCandidate);
+  }
+
+  public destroy() {
+    this.socket.off("webrtc:answer", this.handleAnswer);
+    this.socket.off("webrtc:ice_candidate", this.handleIceCandidate);
+    this.peers.forEach(peer => peer.close());
+    this.peers.clear();
+    this.dataChannels.clear();
+  }
+
+  public async sendFile(joinerId: string, fileId: string, fileObj: File) {
+    const peerId = `${joinerId}-${fileId}`;
+    
+    if (!this.peers.has(peerId)) {
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      });
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          this.socket.emit("webrtc:ice_candidate", {
+            targetId: joinerId,
+            sessionId: this.sessionId,
+            candidate: event.candidate
+          });
+        }
+      };
+
+      const dc = pc.createDataChannel(`file-${fileId}`);
+      dc.binaryType = "arraybuffer";
+      
+      dc.onopen = () => {
+        console.log(`Data channel open for ${fileId} to ${joinerId}`);
+        this.sendFileChunks(dc, fileId, joinerId, fileObj);
+      };
+
+      this.peers.set(peerId, pc);
+      this.dataChannels.set(peerId, dc);
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      this.socket.emit("webrtc:offer", {
+        targetId: joinerId,
+        sessionId: this.sessionId,
+        offer
+      });
+    }
+  }
+
+  private sendFileChunks(dc: RTCDataChannel, fileId: string, joinerId: string, fileObj: File) {
+    let offset = 0;
+    const fileReader = new FileReader();
+    
+    // We send metadata first
+    dc.send(JSON.stringify({ type: 'header', fileId, name: fileObj.name, size: fileObj.size, fileType: fileObj.type }));
+
+    fileReader.onerror = error => console.error('Error reading file:', error);
+    fileReader.onabort = () => console.log('File reading aborted');
+
+    const readSlice = (o: number) => {
+      const slice = fileObj.slice(offset, o + CHUNK_SIZE);
+      fileReader.readAsArrayBuffer(slice);
+    };
+
+    fileReader.onload = e => {
+      if (!e.target || !e.target.result) return;
+      
+      const buffer = e.target.result as ArrayBuffer;
+      try {
+        dc.send(buffer);
+        offset += buffer.byteLength;
+        this.onProgress(fileId, joinerId, offset, fileObj.size);
+
+        if (offset < fileObj.size) {
+          // Check buffered amount to avoid overloading
+          if (dc.bufferedAmount > CHUNK_SIZE * 8) {
+            dc.onbufferedamountlow = () => {
+              dc.onbufferedamountlow = null;
+              readSlice(offset);
+            };
+          } else {
+            readSlice(offset);
+          }
+        } else {
+          dc.send(JSON.stringify({ type: 'eof', fileId }));
+        }
+      } catch (err) {
+        console.error("DataChannel send error", err);
+      }
+    };
+
+    readSlice(0);
+  }
+
+  private handleAnswer = async (payload: { senderId: string; answer: RTCSessionDescriptionInit; fileId?: string }) => {
+    // For MVP, we might need to know which peer connection to use.
+    // If the client sends fileId back, we can find it. Otherwise we iterate (hacky for MVP)
+    for (const [peerId, pc] of this.peers.entries()) {
+      if (peerId.startsWith(payload.senderId)) {
+        if (pc.signalingState === "have-local-offer") {
+           await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+        }
+      }
+    }
+  };
+
+  private handleIceCandidate = async (payload: { senderId: string; candidate: RTCIceCandidateInit }) => {
+    for (const [peerId, pc] of this.peers.entries()) {
+      if (peerId.startsWith(payload.senderId)) {
+         await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+      }
+    }
+  };
+}

@@ -19,6 +19,8 @@ import { useState, useEffect } from "react";
 import { QrCodeArt } from "@/components/QrCodeArt";
 import { CountdownBadge } from "@/components/CountdownBadge";
 import { getSocket } from "@/lib/socket";
+import { WebRTCHost } from "@/lib/webrtcHost";
+import { useRef } from "react";
 
 export const Route = createFileRoute("/host")({
   head: () => ({
@@ -34,19 +36,15 @@ export const Route = createFileRoute("/host")({
   component: HostDashboard,
 });
 
-const initialFiles = [
-  { id: 1, name: "Q4-brand-guidelines.pdf", size: "8.2 MB", pct: 100, Icon: FileText },
-  { id: 2, name: "hero-render-final.png", size: "24.7 MB", pct: 84, Icon: FileImage },
-  { id: 3, name: "client-handoff.zip", size: "412 MB", pct: 41, Icon: FileArchive },
-  { id: 4, name: "voiceover-master.wav", size: "78 MB", pct: 12, Icon: FileText },
-];
-
 function HostDashboard() {
   const [paused, setPaused] = useState(false);
   const [pwd, setPwd] = useState(true);
   const [keepAwake, setKeepAwake] = useState(true);
   const [sessionKey, setSessionKey] = useState<string>("Connecting...");
-  const [files, setFiles] = useState<any[]>(initialFiles);
+  const [files, setFiles] = useState<any[]>([]);
+  const [devices, setDevices] = useState<{ id: string }[]>([]);
+  const [speed, setSpeed] = useState("0 MB/s");
+  const [sent, setSent] = useState("0 MB");
 
   const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -80,19 +78,68 @@ function HostDashboard() {
 
   useEffect(() => {
     const socket = getSocket();
+    let currentSessionId: string | null = null;
     
     socket.emit("host:start", (res: any) => {
       if (res.success) {
+        currentSessionId = res.sessionId;
         setSessionKey(res.sessionId);
       } else {
         setSessionKey("Error creating session");
       }
     });
 
+    const onJoinerConnected = (data: { joinerId: string }) => {
+      setDevices(prev => [...prev, { id: data.joinerId }]);
+    };
+
+    socket.on("host:joiner_connected", onJoinerConnected);
+
     return () => {
-      socket.emit("host:shutdown", { sessionId: sessionKey });
+      socket.off("host:joiner_connected", onJoinerConnected);
+      if (currentSessionId) {
+        socket.emit("host:shutdown", { sessionId: currentSessionId });
+      }
     };
   }, []);
+
+  // WebRTC Setup
+  const filesRef = useRef(files);
+  filesRef.current = files;
+
+  useEffect(() => {
+    if (!sessionKey || sessionKey === "Connecting..." || sessionKey === "Error creating session") return;
+    
+    const socket = getSocket();
+    
+    const rtcHost = new WebRTCHost(socket, sessionKey, (fileId, joinerId, sentBytes, totalBytes) => {
+      setFiles(prev => prev.map(f => {
+        if (f.id === fileId) {
+          return { ...f, pct: Math.round((sentBytes / totalBytes) * 100) };
+        }
+        return f;
+      }));
+      setSent((prevSent) => {
+        const currentMB = parseFloat(prevSent.replace(" MB", "")) || 0;
+        return (currentMB + (64 / 1024)).toFixed(2) + " MB";
+      });
+      setSpeed("14.2 MB/s"); // Mock dynamic speed
+    });
+
+    const onFileRequested = ({ joinerId, fileId }: { joinerId: string, fileId: string }) => {
+      const file = filesRef.current.find(f => f.id === fileId);
+      if (file && file.fileObj) {
+        rtcHost.sendFile(joinerId, fileId, file.fileObj);
+      }
+    };
+
+    socket.on("host:file_requested", onFileRequested);
+
+    return () => {
+      socket.off("host:file_requested", onFileRequested);
+      rtcHost.destroy();
+    };
+  }, [sessionKey]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
@@ -121,9 +168,9 @@ function HostDashboard() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Devices", value: "3", Icon: Users },
-              { label: "Speed", value: "18.4 MB/s", Icon: Gauge },
-              { label: "Sent", value: "287 MB", Icon: Share2 },
+              { label: "Devices", value: devices.length.toString(), Icon: Users },
+              { label: "Speed", value: speed, Icon: Gauge },
+              { label: "Sent", value: sent, Icon: Share2 },
             ].map(({ label, value, Icon }) => (
               <div key={label} className="glass gradient-border rounded-2xl p-4">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -161,7 +208,7 @@ function HostDashboard() {
                         </span>
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {f.size} · {f.pct === 100 ? "Complete" : "Streaming"}
+                        {f.size} · {f.pct === 100 ? "Complete" : "Waiting"}
                       </p>
                     </div>
                     <button className="rounded-lg p-2 text-muted-foreground opacity-0 transition hover:bg-white/5 hover:text-destructive group-hover:opacity-100">
@@ -173,12 +220,17 @@ function HostDashboard() {
                       className="neon-progress h-full rounded-full transition-all"
                       style={{ width: `${f.pct}%` }}
                     />
-                    {f.pct < 100 && (
+                    {f.pct > 0 && f.pct < 100 && (
                       <div className="shimmer absolute inset-0 rounded-full" />
                     )}
                   </div>
                 </li>
               ))}
+              {files.length === 0 && (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  No files added yet. Click "Add files" to start.
+                </div>
+              )}
             </ul>
           </div>
 
@@ -253,24 +305,25 @@ function HostDashboard() {
           <div className="glass rounded-3xl p-5">
             <p className="text-sm font-semibold">Connected devices</p>
             <ul className="mt-3 space-y-2 text-sm">
-              {[
-                { d: "iPhone 15 Pro", loc: "Berlin · WiFi", on: true },
-                { d: "MacBook Air", loc: "Berlin · WiFi", on: true },
-                { d: "Pixel 9", loc: "Lagos · 5G", on: false },
-              ].map((c) => (
+              {devices.map((c) => (
                 <li
-                  key={c.d}
+                  key={c.id}
                   className="flex items-center justify-between rounded-xl bg-white/[0.03] px-3 py-2 ring-1 ring-white/5"
                 >
                   <span className="flex items-center gap-2">
                     <span
-                      className={`h-2 w-2 rounded-full ${c.on ? "bg-success animate-pulse" : "bg-muted-foreground/50"}`}
+                      className={`h-2 w-2 rounded-full bg-success animate-pulse`}
                     />
-                    <span className="font-medium">{c.d}</span>
+                    <span className="font-medium">Device {c.id.substring(0, 4)}</span>
                   </span>
-                  <span className="text-xs text-muted-foreground">{c.loc}</span>
+                  <span className="text-xs text-muted-foreground">Connected</span>
                 </li>
               ))}
+              {devices.length === 0 && (
+                <li className="text-center text-xs text-muted-foreground py-2">
+                  Waiting for devices to connect...
+                </li>
+              )}
             </ul>
           </div>
         </aside>

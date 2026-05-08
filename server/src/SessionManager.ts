@@ -1,5 +1,6 @@
 import { Session, FileMetadata } from './types';
 import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
 
 class SessionManager {
   private sessions: Map<string, Session> = new Map();
@@ -10,13 +11,24 @@ class SessionManager {
     setInterval(() => this.cleanupExpiredSessions(), 60 * 60 * 1000); // Check every hour
   }
 
+  private generateSecureId(): string {
+    // Generate a secure 12-character alphanumeric string (excluding confusing characters like O/0, I/1)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const randomBytes = crypto.randomBytes(12);
+    let id = '';
+    for (let i = 0; i < 12; i++) {
+      id += chars[randomBytes[i] % chars.length];
+    }
+    // Format as XXXX-XXXX-XXXX
+    return `${id.slice(0, 4)}-${id.slice(4, 8)}-${id.slice(8, 12)}`;
+  }
+
   public createSession(hostSocketId: string): string {
-    // Generate a simple 6-digit numeric ID for easier typing, or fallback to UUID
-    let sessionId = Math.floor(100000 + Math.random() * 900000).toString();
+    let sessionId = this.generateSecureId();
     
     // Ensure uniqueness
     while (this.sessions.has(sessionId)) {
-      sessionId = Math.floor(100000 + Math.random() * 900000).toString();
+      sessionId = this.generateSecureId();
     }
 
     const now = Date.now();

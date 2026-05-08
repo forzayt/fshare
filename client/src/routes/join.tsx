@@ -47,7 +47,7 @@ function JoinSession() {
           Join session
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
-          Connect to a <span className="gradient-text">peer</span>
+          Connect to a <span className="gradient-text"> Server</span>
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Enter the host's session key to connect.

@@ -5,8 +5,8 @@ export function SiteHeader() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const links = [
     { to: "/", label: "Home" },
-    { to: "/host", label: "Host" },
-    { to: "/join", label: "Join" },
+    { to: "/host", label: "Create Server" },
+    { to: "/join", label: "Join Server" },
   ] as const;
 
   return (

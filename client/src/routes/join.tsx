@@ -32,7 +32,6 @@ export const Route = createFileRoute("/join")({
 function JoinSession() {
   const [key, setKey] = useState("");
   const [joined, setJoined] = useState(false);
-  const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [files, setFiles] = useState<any[]>([]);
 
@@ -121,10 +120,10 @@ function JoinSession() {
     });
   };
 
-  const handleDownloadSelected = () => {
+  const handleDownloadAll = () => {
     if (webrtcRef.current) {
-      selected.forEach(fileId => {
-        webrtcRef.current?.requestFile(fileId.toString());
+      files.forEach((f) => {
+        webrtcRef.current?.requestFile(f.id.toString());
       });
     }
   };
@@ -134,9 +133,6 @@ function JoinSession() {
       webrtcRef.current.requestFile(fileId.toString());
     }
   };
-
-  const toggle = (id: string) =>
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:py-12">
@@ -209,44 +205,44 @@ function JoinSession() {
 
           <div className="glass gradient-border rounded-3xl p-3 sm:p-5">
             <div className="mb-3 flex items-center justify-between px-2">
-              <p className="text-sm font-semibold">Available files</p>
-              <p className="text-xs text-muted-foreground">
-                {selected.length} selected
-              </p>
+              <div>
+                <p className="text-sm font-semibold">Available files</p>
+                <p className="text-xs text-muted-foreground">
+                  {files.length} files shared by host
+                </p>
+              </div>
+              {files.length > 0 && (
+                <button
+                  onClick={handleDownloadAll}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-xs font-semibold text-primary ring-1 ring-primary/30 transition-colors hover:bg-primary/20"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download all
+                </button>
+              )}
             </div>
             <ul className="space-y-2">
               {files.map((f) => {
-                const on = selected.includes(f.id);
                 const Icon = f.Icon || FileText;
                 return (
                   <li
                     key={f.id}
-                    className={`flex items-center gap-3 rounded-2xl p-3 ring-1 transition sm:p-4 ${
-                      on
-                        ? "bg-primary/5 ring-primary/30"
-                        : "bg-white/[0.03] ring-white/5"
-                    }`}
+                    className="flex items-center gap-3 rounded-2xl bg-white/[0.03] p-3 ring-1 ring-white/5 transition hover:bg-white/[0.06] sm:p-4"
                   >
-                    <button
-                      onClick={() => toggle(f.id)}
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md ring-1 transition ${
-                        on
-                          ? "bg-[image:var(--gradient-primary)] ring-transparent"
-                          : "ring-white/20"
-                      }`}
-                    >
-                      {on && <CheckCircle2 className="h-3.5 w-3.5 text-primary-foreground" />}
-                    </button>
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
                       <Icon className="h-4 w-4 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-medium">{f.name}</p>
-                        {f.pct !== undefined && <span className="shrink-0 text-xs text-muted-foreground">{f.pct}%</span>}
+                        {f.pct !== undefined && f.pct > 0 && (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {f.pct}%
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {f.size} · {f.pct === 100 ? "Ready" : f.pct > 0 ? "Downloading" : "Waiting"}
+                        {f.size} · {f.pct === 100 ? "Complete" : f.pct > 0 ? "Downloading" : "Ready"}
                       </p>
                       {f.pct > 0 && f.pct < 100 && (
                         <div className="relative mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
@@ -274,17 +270,6 @@ function JoinSession() {
               )}
             </ul>
           </div>
-
-          <button 
-            onClick={handleDownloadSelected}
-            disabled={selected.length === 0}
-            className={`sticky bottom-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow-lg)] transition-all ${
-              selected.length > 0 ? "bg-[image:var(--gradient-primary)] hover:scale-[1.01]" : "bg-white/10 text-muted-foreground cursor-not-allowed"
-            }`}
-          >
-            <Download className="h-4 w-4" />
-            Download {selected.length} file{selected.length === 1 ? "" : "s"}
-          </button>
         </div>
       )}
     </main>

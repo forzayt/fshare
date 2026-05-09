@@ -59,6 +59,7 @@ function HostDashboard() {
   const [sent, setSent] = useState("0 MB");
   const [copied, setCopied] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
 
   // Load files from DB on mount
   useEffect(() => {
@@ -241,6 +242,34 @@ function HostDashboard() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div className="glass flex items-center gap-2 rounded-full px-3 py-1.5 transition-colors">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium border-r border-white/10 pr-2 mr-1">Key</span>
+            <code className="font-mono text-xs tracking-wider text-primary">
+              {sessionKey}
+            </code>
+            <button
+              className="ml-1 text-muted-foreground hover:text-primary transition-colors"
+              aria-label="Copy session key"
+              onClick={() => {
+                navigator.clipboard.writeText(sessionKey).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                });
+              }}
+            >
+              {copied ? (
+                <span className="text-[10px] font-bold text-success px-0.5">✓</span>
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+            </button>
+          </div>
+          <button 
+            onClick={() => setShowRevokeConfirm(true)}
+            className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <Power className="h-3.5 w-3.5" /> Revoke session
+          </button>
           <label className="glass inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-xs hover:bg-white/5">
             <Plus className="h-3.5 w-3.5" /> Add files
             <input type="file" multiple className="hidden" onChange={handleAddFiles} />
@@ -248,7 +277,7 @@ function HostDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
+      <div className="flex flex-col gap-5">
         {/* Deletion Confirmation */}
         <AlertDialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
           <AlertDialogContent>
@@ -270,6 +299,30 @@ function HostDashboard() {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Revoke Session Confirmation */}
+        <AlertDialog open={showRevokeConfirm} onOpenChange={setShowRevokeConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Revoke this session?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will immediately disconnect all devices and stop sharing all files. You will need to start a new session to share again.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep session</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  handleShutdown();
+                  setShowRevokeConfirm(false);
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Revoke session
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -348,88 +401,10 @@ function HostDashboard() {
               )}
             </ul>
           </div>
-
-          {/* Controls */}
-          <div className="glass gradient-border rounded-3xl p-5">
-            <p className="text-sm font-semibold">Session controls</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <button
-                onClick={() => setPaused((p) => !p)}
-                className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3 ring-1 ring-white/5 hover:bg-white/[0.06]"
-              >
-                <span className="flex items-center gap-2 text-sm">
-                  {paused ? <Play className="h-4 w-4 text-primary" /> : <Pause className="h-4 w-4 text-primary" />}
-                  {paused ? "Resume transfers" : "Pause transfers"}
-                </span>
-                <span className="text-xs text-muted-foreground">{paused ? "Paused" : "Active"}</span>
-              </button>
-              <Toggle
-                label="Password protection"
-                Icon={Lock}
-                on={pwd}
-                onChange={setPwd}
-                hint={pwd ? "Required to join" : "Open join"}
-              />
-              <Toggle
-                label="Keep this device awake"
-                Icon={Eye}
-                on={keepAwake}
-                onChange={setKeepAwake}
-                hint="Prevents sleep"
-              />
-              <button 
-                onClick={handleShutdown}
-                className="flex items-center justify-between rounded-2xl bg-destructive/10 px-4 py-3 text-destructive ring-1 ring-destructive/30 hover:bg-destructive/15"
-              >
-                <span className="flex items-center gap-2 text-sm font-medium">
-                  <Power className="h-4 w-4" />
-                  Revoke session now
-                </span>
-                <span className="text-xs">End</span>
-              </button>
-            </div>
-          </div>
         </section>
 
         {/* Share panel */}
         <aside className="space-y-5">
-          <div className="glass gradient-border rounded-3xl p-5 text-center">
-            {/* QR Scanner hidden */}
-            {/* <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Scan to join
-            </p>
-            <div className="mt-4 flex justify-center">
-              <div className="rounded-2xl glow-primary">
-                <QrCodeArt size={220} value={sessionKey} />
-              </div>
-            </div> */}
-            <p className="mt-4 text-xs text-muted-foreground">Session key</p>
-            <div className="mt-1 flex items-center justify-center gap-2">
-              <code className="rounded-lg bg-white/5 px-3 py-1.5 font-mono text-sm tracking-wider text-primary ring-1 ring-white/5">
-                {sessionKey}
-              </code>
-              <button
-                className="rounded-lg bg-primary/10 p-2 text-primary ring-1 ring-primary/30 hover:bg-primary/20 transition-colors"
-                aria-label="Copy session key"
-                onClick={() => {
-                  navigator.clipboard.writeText(sessionKey).then(() => {
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  });
-                }}
-              >
-                {copied ? (
-                  <span className="text-xs font-semibold px-0.5">✓</span>
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-            <button className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[image:var(--gradient-primary)] px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)]">
-              <Share2 className="h-4 w-4" /> Share invite link
-            </button>
-          </div>
-
           <div className="glass rounded-3xl p-5">
             <p className="text-sm font-semibold">Connected devices</p>
             <ul className="mt-3 space-y-2 text-sm">

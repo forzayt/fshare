@@ -9,11 +9,13 @@ import {
   FileArchive,
   Camera,
   CheckCircle2,
+  Trash2,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { CountdownBadge } from "@/components/CountdownBadge";
 import { getSocket } from "@/lib/socket";
 import { WebRTCJoiner } from "@/lib/webrtcJoiner";
+import { db } from "@/lib/db";
 
 export const Route = createFileRoute("/join")({
   head: () => ({
@@ -34,6 +36,21 @@ function JoinSession() {
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [files, setFiles] = useState<any[]>([]);
+  const [savedFiles, setSavedFiles] = useState<any[]>([]);
+
+  // Load saved files from DB
+  const loadSavedFiles = async () => {
+    const dbFiles = await db.getFilesByRole('joiner');
+    setSavedFiles(dbFiles.map(f => ({
+      ...f,
+      sizeStr: (f.size / (1024 * 1024)).toFixed(2) + " MB",
+      Icon: FileText,
+    })));
+  };
+
+  useEffect(() => {
+    loadSavedFiles();
+  }, []);
 
   useEffect(() => {
     const socket = getSocket();
@@ -71,7 +88,7 @@ function JoinSession() {
             return f;
           }));
         }, 
-        (fileId, blob, meta) => {
+        async (fileId, blob, meta) => {
           // Trigger download
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -83,6 +100,9 @@ function JoinSession() {
           window.URL.revokeObjectURL(url);
           
           setFiles(prev => prev.map(f => f.id === fileId ? { ...f, pct: 100, ready: true } : f));
+          
+          // Refresh saved files list
+          loadSavedFiles();
         }
       );
       
@@ -94,6 +114,23 @@ function JoinSession() {
       };
     }
   }, [joined, key]);
+
+  const handleDownloadFromDB = async (fileId: string, name: string, type: string) => {
+    const blob = await db.getFileBlob(fileId, type);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteSavedFile = async (id: string) => {
+    await db.deleteFile(id);
+    loadSavedFiles();
+  };
 
   const handleJoin = () => {
     if (!key.trim()) return;
@@ -148,42 +185,91 @@ function JoinSession() {
       </div>
 
       {!joined ? (
-        <div className="mt-8 flex justify-center">
-          {/* Session key */}
-          <div className="glass gradient-border w-full max-w-sm rounded-3xl p-5">
-            <p className="text-sm font-semibold">Session key</p>
-            <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-3 ring-1 ring-white/5 focus-within:ring-primary/50">
-              <KeyRound className="h-4 w-4 text-primary" />
-              <input
-                value={key}
-                onChange={(e) => setKey(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-                placeholder="A4N9-K72X-Q3LM"
-                autoComplete="off"
-                spellCheck={false}
-                className="flex-1 bg-transparent font-mono text-sm tracking-wider outline-none placeholder:text-muted-foreground/60"
-              />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              12 characters · case insensitive · dashes optional
-            </p>
-            
-            {error && (
-              <p className="mt-2 text-xs text-destructive">{error}</p>
-            )}
+        <>
+          <div className="mt-8 flex justify-center">
+            {/* Session key */}
+            <div className="glass gradient-border w-full max-w-sm rounded-3xl p-5">
+              <p className="text-sm font-semibold">Session key</p>
+              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-3 ring-1 ring-white/5 focus-within:ring-primary/50">
+                <KeyRound className="h-4 w-4 text-primary" />
+                <input
+                  value={key}
+                  onChange={(e) => setKey(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                  placeholder="A4N9-K72X-Q3LM"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="flex-1 bg-transparent font-mono text-sm tracking-wider outline-none placeholder:text-muted-foreground/60"
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                12 characters · case insensitive · dashes optional
+              </p>
+              
+              {error && (
+                <p className="mt-2 text-xs text-destructive">{error}</p>
+              )}
 
-            <button
-              onClick={handleJoin}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[image:var(--gradient-primary)] px-4 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition-transform hover:scale-[1.01]"
-            >
-              Join secure session
-            </button>
-            <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-success" />
-              Verified end-to-end · No account required
+              <button
+                onClick={handleJoin}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[image:var(--gradient-primary)] px-4 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition-transform hover:scale-[1.01]"
+              >
+                Join secure session
+              </button>
+              <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 text-success" />
+                Verified end-to-end · No account required
+              </div>
             </div>
           </div>
-        </div>
+          {/* Saved Files Section for not joined state */}
+          {savedFiles.length > 0 && (
+            <div className="mt-12">
+               <div className="glass gradient-border rounded-3xl p-3 sm:p-5">
+                 <div className="mb-3 flex items-center justify-between px-2">
+                   <p className="text-sm font-semibold">Indexed Files (Local Storage)</p>
+                   <p className="text-xs text-muted-foreground">
+                     {savedFiles.length} files saved
+                   </p>
+                 </div>
+                 <ul className="space-y-2">
+                   {savedFiles.map((f) => (
+                     <li
+                       key={f.id}
+                       className="group flex items-center gap-3 rounded-2xl bg-white/[0.03] p-3 ring-1 ring-white/5 transition hover:bg-white/[0.06] sm:p-4"
+                     >
+                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success/10 ring-1 ring-success/20">
+                         <f.Icon className="h-4 w-4 text-success" />
+                       </div>
+                       <div className="min-w-0 flex-1">
+                         <p className="truncate text-sm font-medium">{f.name}</p>
+                         <p className="text-xs text-muted-foreground">
+                           {f.sizeStr} · Saved locally
+                         </p>
+                       </div>
+                       <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                         <button
+                           onClick={() => handleDownloadFromDB(f.id, f.name, f.type)}
+                           className="rounded-lg p-2 text-muted-foreground hover:bg-white/5 hover:text-primary"
+                           title="Download"
+                         >
+                           <Download className="h-4 w-4" />
+                         </button>
+                         <button
+                           onClick={() => handleDeleteSavedFile(f.id)}
+                           className="rounded-lg p-2 text-muted-foreground hover:bg-white/5 hover:text-destructive"
+                           title="Delete"
+                         >
+                           <Trash2 className="h-4 w-4" />
+                         </button>
+                       </div>
+                     </li>
+                   ))}
+                 </ul>
+               </div>
+            </div>
+          )}
+        </>
       ) : (
         <div className="mt-8 space-y-5">
           <div className="glass gradient-border flex flex-wrap items-center justify-between gap-3 rounded-3xl p-4">
@@ -268,6 +354,52 @@ function JoinSession() {
               )}
             </ul>
           </div>
+
+          {/* Saved Files Section */}
+          {savedFiles.length > 0 && (
+            <div className="glass gradient-border mt-8 rounded-3xl p-3 sm:p-5">
+              <div className="mb-3 flex items-center justify-between px-2">
+                <p className="text-sm font-semibold">Indexed Files (Local Storage)</p>
+                <p className="text-xs text-muted-foreground">
+                  {savedFiles.length} files saved
+                </p>
+              </div>
+              <ul className="space-y-2">
+                {savedFiles.map((f) => (
+                  <li
+                    key={f.id}
+                    className="group flex items-center gap-3 rounded-2xl bg-white/[0.03] p-3 ring-1 ring-white/5 transition hover:bg-white/[0.06] sm:p-4"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success/10 ring-1 ring-success/20">
+                      <f.Icon className="h-4 w-4 text-success" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{f.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {f.sizeStr} · Saved locally
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                      <button
+                        onClick={() => handleDownloadFromDB(f.id, f.name, f.type)}
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-white/5 hover:text-primary"
+                        title="Download"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSavedFile(f.id)}
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-white/5 hover:text-destructive"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <button 
             onClick={handleDownloadSelected}

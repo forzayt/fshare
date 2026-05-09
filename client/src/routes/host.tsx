@@ -21,6 +21,9 @@ import { CountdownBadge } from "@/components/CountdownBadge";
 import { getSocket } from "@/lib/socket";
 import { WebRTCHost } from "@/lib/webrtcHost";
 import { useRef } from "react";
+import { db } from "@/lib/db";
+
+const CHUNK_SIZE = 64 * 1024; // 64 KB
 
 export const Route = createFileRoute("/host")({
   head: () => ({
@@ -47,18 +50,69 @@ function HostDashboard() {
   const [sent, setSent] = useState("0 MB");
   const [copied, setCopied] = useState(false);
 
-  const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files).map((file) => ({
-        id: Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-        pct: 0,
+  // Load files from DB on mount
+  useEffect(() => {
+    const loadFiles = async () => {
+      const dbFiles = await db.getFilesByRole('host');
+      setFiles(dbFiles.map(f => ({
+        id: f.id,
+        name: f.name,
+        size: (f.size / (1024 * 1024)).toFixed(2) + " MB",
+        pct: 100,
         Icon: FileText,
-        fileObj: file, // Keep actual file for future upload/webrtc
-      }));
-      setFiles((prev) => [...prev, ...newFiles]);
+        // No fileObj after refresh, WebRTCHost will use DB
+      })));
+    };
+    loadFiles();
+  }, []);
+
+  const handleAddFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFilesList = Array.from(e.target.files);
+      for (const file of newFilesList) {
+        const fileId = Math.random().toString(36).substr(2, 9);
+        
+        // Save metadata to DB
+        await db.saveFileMetadata({
+          id: fileId,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          role: 'host',
+          addedAt: Date.now()
+        });
+
+        // Save chunks to DB (streaming)
+        let offset = 0;
+        let chunkIndex = 0;
+        while (offset < file.size) {
+          const slice = file.slice(offset, offset + CHUNK_SIZE);
+          const buffer = await slice.arrayBuffer();
+          await db.saveChunk({
+            fileId,
+            index: chunkIndex,
+            data: buffer
+          });
+          offset += buffer.byteLength;
+          chunkIndex++;
+        }
+
+        const newFile = {
+          id: fileId,
+          name: file.name,
+          size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
+          pct: 100,
+          Icon: FileText,
+          fileObj: file,
+        };
+        setFiles((prev) => [...prev, newFile]);
+      }
     }
+  };
+
+  const handleDeleteFile = async (id: string) => {
+    await db.deleteFile(id);
+    setFiles(prev => prev.filter(f => f.id !== id));
   };
 
   useEffect(() => {
@@ -218,7 +272,10 @@ function HostDashboard() {
                         {f.size} · {f.pct === 100 ? "Complete" : "Waiting"}
                       </p>
                     </div>
-                    <button className="rounded-lg p-2 text-muted-foreground opacity-0 transition hover:bg-white/5 hover:text-destructive group-hover:opacity-100">
+                    <button 
+                      onClick={() => handleDeleteFile(f.id)}
+                      className="rounded-lg p-2 text-muted-foreground opacity-0 transition hover:bg-white/5 hover:text-destructive group-hover:opacity-100"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>

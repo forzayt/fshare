@@ -1,4 +1,5 @@
 import { Socket } from "socket.io-client";
+import { db } from "./db";
 
 const CHUNK_SIZE = 64 * 1024; // 64 KB
 
@@ -30,7 +31,7 @@ export class WebRTCHost {
     this.dataChannels.clear();
   }
 
-  public async sendFile(joinerId: string, fileId: string, fileObj: File) {
+  public async sendFile(joinerId: string, fileId: string, fileObj?: File) {
     const peerId = `${joinerId}-${fileId}`;
     
     if (!this.peers.has(peerId)) {
@@ -51,9 +52,13 @@ export class WebRTCHost {
       const dc = pc.createDataChannel(`file-${fileId}`);
       dc.binaryType = "arraybuffer";
       
-      dc.onopen = () => {
+      dc.onopen = async () => {
         console.log(`Data channel open for ${fileId} to ${joinerId}`);
-        this.sendFileChunks(dc, fileId, joinerId, fileObj);
+        if (fileObj) {
+          this.sendFileChunks(dc, fileId, joinerId, fileObj);
+        } else {
+          await this.sendFileFromDB(dc, fileId, joinerId);
+        }
       };
 
       this.peers.set(peerId, pc);
@@ -68,6 +73,39 @@ export class WebRTCHost {
         offer
       });
     }
+  }
+
+  private async sendFileFromDB(dc: RTCDataChannel, fileId: string, joinerId: string) {
+    const files = await db.getFilesByRole('host');
+    const fileMeta = files.find(f => f.id === fileId);
+    if (!fileMeta) {
+      console.error('File not found in DB:', fileId);
+      return;
+    }
+
+    const chunks = await db.getChunks(fileId);
+    
+    // We send metadata first
+    dc.send(JSON.stringify({ type: 'header', fileId, name: fileMeta.name, size: fileMeta.size, fileType: fileMeta.type }));
+
+    let offset = 0;
+    for (const chunk of chunks) {
+      // Check buffered amount
+      if (dc.bufferedAmount > CHUNK_SIZE * 8) {
+        await new Promise<void>(resolve => {
+          dc.onbufferedamountlow = () => {
+            dc.onbufferedamountlow = null;
+            resolve();
+          };
+        });
+      }
+      
+      dc.send(chunk);
+      offset += chunk.byteLength;
+      this.onProgress(fileId, joinerId, offset, fileMeta.size);
+    }
+
+    dc.send(JSON.stringify({ type: 'eof', fileId }));
   }
 
   private sendFileChunks(dc: RTCDataChannel, fileId: string, joinerId: string, fileObj: File) {

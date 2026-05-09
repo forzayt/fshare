@@ -1,5 +1,4 @@
 import { Socket } from "socket.io-client";
-import { db } from "./db";
 
 export class WebRTCJoiner {
   private peers: Map<string, RTCPeerConnection> = new Map();
@@ -8,7 +7,7 @@ export class WebRTCJoiner {
   private onProgress: (fileId: string, receivedBytes: number, totalBytes: number) => void;
   private onComplete: (fileId: string, blob: Blob, meta: any) => void;
 
-  private incomingFiles: Map<string, { chunkIndex: number, received: number, meta: any }> = new Map();
+  private incomingFiles: Map<string, { buffer: ArrayBuffer[], received: number, meta: any }> = new Map();
 
   constructor(
     socket: Socket, 
@@ -64,21 +63,11 @@ export class WebRTCJoiner {
           const msg = JSON.parse(e.data);
           if (msg.type === 'header') {
             currentFileId = msg.fileId as string;
-            this.incomingFiles.set(currentFileId, { chunkIndex: 0, received: 0, meta: msg });
-            
-            // Save metadata to DB
-            await db.saveFileMetadata({
-              id: currentFileId,
-              name: msg.name,
-              size: msg.size,
-              type: msg.fileType,
-              role: 'joiner',
-              addedAt: Date.now()
-            });
+            this.incomingFiles.set(currentFileId, { buffer: [], received: 0, meta: msg });
           } else if (msg.type === 'eof' && currentFileId) {
             const fileData = this.incomingFiles.get(currentFileId);
             if (fileData) {
-              const blob = await db.getFileBlob(currentFileId, fileData.meta.fileType);
+              const blob = new Blob(fileData.buffer, { type: fileData.meta.fileType });
               this.onComplete(currentFileId, blob, fileData.meta);
               this.incomingFiles.delete(currentFileId);
             }
@@ -86,17 +75,8 @@ export class WebRTCJoiner {
         } else if (e.data instanceof ArrayBuffer && currentFileId) {
           const fileData = this.incomingFiles.get(currentFileId);
           if (fileData) {
-            const index = fileData.chunkIndex;
-            fileData.chunkIndex++;
+            fileData.buffer.push(e.data);
             fileData.received += e.data.byteLength;
-            
-            // Save chunk to DB
-            await db.saveChunk({
-              fileId: currentFileId,
-              index,
-              data: e.data
-            });
-
             this.onProgress(currentFileId, fileData.received, fileData.meta.size);
           }
         }

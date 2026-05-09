@@ -35,6 +35,12 @@ export class WebRTCJoiner {
     // Generate a unique peer ID based on sender and fileId
     const peerId = `${payload.senderId}-${payload.fileId}`;
     
+    // Close existing peer connection for this file if it exists
+    if (this.peers.has(peerId)) {
+      this.peers.get(peerId)?.close();
+      this.peers.delete(peerId);
+    }
+
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
     });

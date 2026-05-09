@@ -34,10 +34,17 @@ export class WebRTCHost {
   public async sendFile(joinerId: string, fileId: string, fileObj?: File) {
     const peerId = `${joinerId}-${fileId}`;
     
-    if (!this.peers.has(peerId)) {
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-      });
+    // If a peer already exists for this file/joiner, close it first to allow a fresh transfer
+    if (this.peers.has(peerId)) {
+      const oldPc = this.peers.get(peerId);
+      oldPc?.close();
+      this.peers.delete(peerId);
+      this.dataChannels.delete(peerId);
+    }
+
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    });
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
@@ -74,7 +81,6 @@ export class WebRTCHost {
         offer,
         fileId: fileId // Include fileId
       });
-    }
   }
 
   private async sendFileFromDB(dc: RTCDataChannel, fileId: string, joinerId: string) {

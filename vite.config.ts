@@ -12,7 +12,7 @@ export default defineConfig({
   tanstackStart: {
     server: { 
       entry: "src/server.ts",
-      preset: process.env.VERCEL ? "vercel" : undefined
+      preset: "vercel"
     },
   },
 });

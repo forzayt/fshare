@@ -61,13 +61,14 @@ class SessionManager {
     return undefined;
   }
 
-  public getSessionByJoinerSocketId(socketId: string): Session | undefined {
+  public getSessionsByJoinerSocketId(socketId: string): Session[] {
+    const matched: Session[] = [];
     for (const session of this.sessions.values()) {
       if (session.joiners.has(socketId)) {
-        return session;
+        matched.push(session);
       }
     }
-    return undefined;
+    return matched;
   }
 
   public removeSession(sessionId: string): void {

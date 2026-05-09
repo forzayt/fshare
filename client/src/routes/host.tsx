@@ -147,7 +147,10 @@ function HostDashboard() {
     });
 
     const onJoinerConnected = (data: { joinerId: string }) => {
-      setDevices(prev => [...prev, { id: data.joinerId }]);
+      setDevices(prev => {
+        if (prev.find(d => d.id === data.joinerId)) return prev;
+        return [...prev, { id: data.joinerId }];
+      });
     };
 
     const onJoinerDisconnected = (data: { joinerId: string }) => {

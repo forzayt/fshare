@@ -145,22 +145,21 @@ export function setupSocket(io: Server) {
     socket.on('disconnect', () => {
       console.log(`[Socket] User disconnected: ${socket.id}`);
       
-      // Check if it was a host
+      // 1. Handle Host Disconnection
       const hostedSession = sessionManager.getSessionByHostSocketId(socket.id);
       if (hostedSession) {
         console.log(`[Session] Host disconnected. Closing session ${hostedSession.id}`);
         socket.to(`session_${hostedSession.id}`).emit('session:closed');
         sessionManager.removeSession(hostedSession.id);
-        return;
       }
 
-      // Check if it was a joiner — find their session and notify the host
-      const joinerSession = sessionManager.getSessionByJoinerSocketId(socket.id);
-      if (joinerSession) {
-        console.log(`[Session] Joiner ${socket.id} disconnected from session ${joinerSession.id}`);
-        sessionManager.leaveSession(joinerSession.id, socket.id);
-        io.to(joinerSession.hostSocketId).emit('host:joiner_disconnected', { joinerId: socket.id });
-      }
+      // 2. Handle Joiner Disconnection (A user could be a host and a joiner in different sessions)
+      const joinerSessions = sessionManager.getSessionsByJoinerSocketId(socket.id);
+      joinerSessions.forEach(session => {
+        console.log(`[Session] Joiner ${socket.id} disconnected from session ${session.id}`);
+        sessionManager.leaveSession(session.id, socket.id);
+        io.to(session.hostSocketId).emit('host:joiner_disconnected', { joinerId: socket.id });
+      });
     });
   });
 }

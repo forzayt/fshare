@@ -4,11 +4,9 @@ import * as crypto from 'crypto';
 
 class SessionManager {
   private sessions: Map<string, Session> = new Map();
-  private readonly SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
 
   constructor() {
-    // Periodically clean up expired sessions
-    setInterval(() => this.cleanupExpiredSessions(), 60 * 60 * 1000); // Check every hour
+    // No more periodic cleanup for expiry
   }
 
   private generateSecureId(): string {
@@ -35,7 +33,6 @@ class SessionManager {
     this.sessions.set(sessionId, {
       id: sessionId,
       hostSocketId,
-      createdAt: now,
       lastActive: now,
       metadata: {},
       joiners: new Set(),
@@ -112,16 +109,6 @@ class SessionManager {
       return Object.values(session.metadata);
     }
     return [];
-  }
-
-  public cleanupExpiredSessions(): void {
-    const now = Date.now();
-    for (const [sessionId, session] of this.sessions.entries()) {
-      if (now - session.lastActive > this.SESSION_TIMEOUT) {
-        this.sessions.delete(sessionId);
-        console.log(`[SessionManager] Cleaned up expired session: ${sessionId}`);
-      }
-    }
   }
 }
 

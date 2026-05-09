@@ -25,7 +25,7 @@ fastify.get('/api/v1/session/:id/validate', async (request, reply) => {
   const session = sessionManager.getSession(id);
   
   if (session) {
-    return { valid: true, createdAt: session.createdAt };
+    return { valid: true };
   } else {
     reply.status(404);
     return { valid: false, error: 'Session not found' };

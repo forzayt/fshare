@@ -11,15 +11,13 @@ export function setupSocket(io: Server) {
     // Host starts a new server
     socket.on('host:start', (callback) => {
       const sessionId = sessionManager.createSession(socket.id);
-      const session = sessionManager.getSession(sessionId);
       socket.join(`session_${sessionId}`); // Host joins its own session room
       console.log(`[Session] Host ${socket.id} created session ${sessionId}`);
       
       if (typeof callback === 'function') {
         callback({ 
           success: true, 
-          sessionId, 
-          createdAt: session?.createdAt 
+          sessionId
         });
       }
     });
@@ -82,8 +80,7 @@ export function setupSocket(io: Server) {
       if (typeof callback === 'function') {
         callback({ 
           success: true, 
-          metadata: sessionManager.getMetadata(sessionId),
-          createdAt: session.createdAt
+          metadata: sessionManager.getMetadata(sessionId)
         });
       }
     });

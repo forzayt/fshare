@@ -10,7 +10,6 @@ export interface FileMetadata {
 export interface Session {
   id: string; // 6-digit or UUID server ID
   hostSocketId: string;
-  createdAt: number;
   lastActive: number;
   metadata: Record<string, FileMetadata>; // Mapping of file ID to metadata
   joiners: Set<string>; // Socket IDs of connected joiners

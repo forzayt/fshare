@@ -15,6 +15,10 @@ fastify.register(cors, {
 });
 
 // Basic Health Check Route
+fastify.get('/', async (request, reply) => {
+  return 'OK';
+});
+
 fastify.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });

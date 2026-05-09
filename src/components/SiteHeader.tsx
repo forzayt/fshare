@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Zap } from "lucide-react";
+import { Github, Zap } from "lucide-react";
 
 export function SiteHeader() {
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -21,6 +21,15 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-1">
+          <a
+            href="https://github.com/forzayt/fshare"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-xl p-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+            aria-label="GitHub Repository"
+          >
+            <Github className="h-6 w-6" />
+          </a>
           {links.map((l) => {
             const active = path === l.to;
             return (

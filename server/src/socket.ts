@@ -11,11 +11,16 @@ export function setupSocket(io: Server) {
     // Host starts a new server
     socket.on('host:start', (callback) => {
       const sessionId = sessionManager.createSession(socket.id);
+      const session = sessionManager.getSession(sessionId);
       socket.join(`session_${sessionId}`); // Host joins its own session room
       console.log(`[Session] Host ${socket.id} created session ${sessionId}`);
       
       if (typeof callback === 'function') {
-        callback({ success: true, sessionId });
+        callback({ 
+          success: true, 
+          sessionId, 
+          createdAt: session?.createdAt 
+        });
       }
     });
 
@@ -77,7 +82,8 @@ export function setupSocket(io: Server) {
       if (typeof callback === 'function') {
         callback({ 
           success: true, 
-          metadata: sessionManager.getMetadata(sessionId) 
+          metadata: sessionManager.getMetadata(sessionId),
+          createdAt: session.createdAt
         });
       }
     });
@@ -85,28 +91,31 @@ export function setupSocket(io: Server) {
     // --- WebRTC Signaling ---
     
     // Forwarding Offer
-    socket.on('webrtc:offer', (payload: { targetId: string; offer: RTCSessionDescriptionInit; sessionId: string }) => {
-      console.log(`[WebRTC] Offer from ${socket.id} to ${payload.targetId}`);
+    socket.on('webrtc:offer', (payload: { targetId: string; offer: RTCSessionDescriptionInit; sessionId: string; fileId?: string }) => {
+      console.log(`[WebRTC] Offer from ${socket.id} to ${payload.targetId} for file ${payload.fileId}`);
       io.to(payload.targetId).emit('webrtc:offer', {
         senderId: socket.id,
         offer: payload.offer,
+        fileId: payload.fileId,
       });
     });
 
     // Forwarding Answer
-    socket.on('webrtc:answer', (payload: { targetId: string; answer: RTCSessionDescriptionInit; sessionId: string }) => {
-      console.log(`[WebRTC] Answer from ${socket.id} to ${payload.targetId}`);
+    socket.on('webrtc:answer', (payload: { targetId: string; answer: RTCSessionDescriptionInit; sessionId: string; fileId?: string }) => {
+      console.log(`[WebRTC] Answer from ${socket.id} to ${payload.targetId} for file ${payload.fileId}`);
       io.to(payload.targetId).emit('webrtc:answer', {
         senderId: socket.id,
         answer: payload.answer,
+        fileId: payload.fileId,
       });
     });
 
     // Forwarding ICE Candidate
-    socket.on('webrtc:ice_candidate', (payload: { targetId: string; candidate: RTCIceCandidateInit; sessionId: string }) => {
+    socket.on('webrtc:ice_candidate', (payload: { targetId: string; candidate: RTCIceCandidateInit; sessionId: string; fileId?: string }) => {
       io.to(payload.targetId).emit('webrtc:ice_candidate', {
         senderId: socket.id,
         candidate: payload.candidate,
+        fileId: payload.fileId,
       });
     });
 

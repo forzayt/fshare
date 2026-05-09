@@ -44,7 +44,8 @@ export class WebRTCHost {
           this.socket.emit("webrtc:ice_candidate", {
             targetId: joinerId,
             sessionId: this.sessionId,
-            candidate: event.candidate
+            candidate: event.candidate,
+            fileId: fileId // Include fileId
           });
         }
       };
@@ -70,7 +71,8 @@ export class WebRTCHost {
       this.socket.emit("webrtc:offer", {
         targetId: joinerId,
         sessionId: this.sessionId,
-        offer
+        offer,
+        fileId: fileId // Include fileId
       });
     }
   }
@@ -154,22 +156,18 @@ export class WebRTCHost {
   }
 
   private handleAnswer = async (payload: { senderId: string; answer: RTCSessionDescriptionInit; fileId?: string }) => {
-    // For MVP, we might need to know which peer connection to use.
-    // If the client sends fileId back, we can find it. Otherwise we iterate (hacky for MVP)
-    for (const [peerId, pc] of this.peers.entries()) {
-      if (peerId.startsWith(payload.senderId)) {
-        if (pc.signalingState === "have-local-offer") {
-           await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
-        }
-      }
+    const peerId = `${payload.senderId}-${payload.fileId}`;
+    const pc = this.peers.get(peerId);
+    if (pc && pc.signalingState === "have-local-offer") {
+      await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
     }
   };
 
-  private handleIceCandidate = async (payload: { senderId: string; candidate: RTCIceCandidateInit }) => {
-    for (const [peerId, pc] of this.peers.entries()) {
-      if (peerId.startsWith(payload.senderId)) {
-         await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-      }
+  private handleIceCandidate = async (payload: { senderId: string; candidate: RTCIceCandidateInit; fileId?: string }) => {
+    const peerId = `${payload.senderId}-${payload.fileId}`;
+    const pc = this.peers.get(peerId);
+    if (pc) {
+      await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
     }
   };
 }

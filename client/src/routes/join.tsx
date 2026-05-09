@@ -36,6 +36,7 @@ function JoinSession() {
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [files, setFiles] = useState<any[]>([]);
+  const [sessionCreatedAt, setSessionCreatedAt] = useState<number | null>(null);
   const [savedFiles, setSavedFiles] = useState<any[]>([]);
 
   // Load saved files from DB
@@ -144,6 +145,7 @@ function JoinSession() {
     socket.emit("joiner:join", { sessionId }, (res: any) => {
       if (res.success) {
         setJoined(true);
+        setSessionCreatedAt(res.createdAt);
         if (res.metadata) {
           setFiles(res.metadata.map((f: any) => ({ ...f, pct: 0 })));
         }
@@ -284,7 +286,9 @@ function JoinSession() {
                 </p>
               </div>
             </div>
-            <CountdownBadge seconds={540} />
+            {sessionCreatedAt && (
+              <CountdownBadge expiryTime={sessionCreatedAt + 24 * 60 * 60 * 1000} />
+            )}
           </div>
 
           <div className="glass gradient-border rounded-3xl p-3 sm:p-5">

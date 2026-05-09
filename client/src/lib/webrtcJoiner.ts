@@ -32,22 +32,23 @@ export class WebRTCJoiner {
     this.peers.clear();
   }
 
-  private handleOffer = async (payload: { senderId: string; offer: RTCSessionDescriptionInit }) => {
-    // Generate a unique peer ID based on sender
-    const peerId = payload.senderId + '-' + Date.now();
+  private handleOffer = async (payload: { senderId: string; offer: RTCSessionDescriptionInit; fileId?: string }) => {
+    // Generate a unique peer ID based on sender and fileId
+    const peerId = `${payload.senderId}-${payload.fileId}`;
     
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
     });
 
-    this.peers.set(payload.senderId, pc); // Map by senderId for MVP
+    this.peers.set(peerId, pc);
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         this.socket.emit("webrtc:ice_candidate", {
           targetId: payload.senderId,
           sessionId: this.sessionId,
-          candidate: event.candidate
+          candidate: event.candidate,
+          fileId: payload.fileId
         });
       }
     };
@@ -109,12 +110,14 @@ export class WebRTCJoiner {
     this.socket.emit("webrtc:answer", {
       targetId: payload.senderId,
       sessionId: this.sessionId,
-      answer
+      answer,
+      fileId: payload.fileId
     });
   };
 
-  private handleIceCandidate = async (payload: { senderId: string; candidate: RTCIceCandidateInit }) => {
-    const pc = this.peers.get(payload.senderId);
+  private handleIceCandidate = async (payload: { senderId: string; candidate: RTCIceCandidateInit; fileId?: string }) => {
+    const peerId = `${payload.senderId}-${payload.fileId}`;
+    const pc = this.peers.get(peerId);
     if (pc) {
       await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
     }

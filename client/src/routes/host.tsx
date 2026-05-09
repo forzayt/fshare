@@ -44,6 +44,7 @@ function HostDashboard() {
   const [pwd, setPwd] = useState(true);
   const [keepAwake, setKeepAwake] = useState(true);
   const [sessionKey, setSessionKey] = useState<string>("Connecting...");
+  const [sessionCreatedAt, setSessionCreatedAt] = useState<number | null>(null);
   const [files, setFiles] = useState<any[]>([]);
   const [devices, setDevices] = useState<{ id: string }[]>([]);
   const [speed, setSpeed] = useState("0 MB/s");
@@ -139,6 +140,7 @@ function HostDashboard() {
       if (res.success) {
         currentSessionId = res.sessionId;
         setSessionKey(res.sessionId);
+        setSessionCreatedAt(res.createdAt);
       } else {
         setSessionKey("Error creating session");
       }
@@ -189,7 +191,7 @@ function HostDashboard() {
 
     const onFileRequested = ({ joinerId, fileId }: { joinerId: string, fileId: string }) => {
       const file = filesRef.current.find(f => f.id === fileId);
-      if (file && file.fileObj) {
+      if (file) {
         rtcHost.sendFile(joinerId, fileId, file.fileObj);
       }
     };
@@ -215,7 +217,9 @@ function HostDashboard() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <CountdownBadge seconds={580} />
+          {sessionCreatedAt && (
+            <CountdownBadge expiryTime={sessionCreatedAt + 24 * 60 * 60 * 1000} />
+          )}
           <label className="glass inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-xs hover:bg-white/5">
             <Plus className="h-3.5 w-3.5" /> Add files
             <input type="file" multiple className="hidden" onChange={handleAddFiles} />

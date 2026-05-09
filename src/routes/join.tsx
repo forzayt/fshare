@@ -38,8 +38,17 @@ function JoinSession() {
   useEffect(() => {
     const socket = getSocket();
     
-    const onMetadata = (metadata: any[]) => {
-      setFiles(metadata);
+    const onMetadata = (newMetadata: any[]) => {
+      setFiles((prev) =>
+        newMetadata.map((newFile) => {
+          const existingFile = prev.find((f) => f.id === newFile.id);
+          return {
+            ...newFile,
+            pct: existingFile ? existingFile.pct : 0,
+            ready: existingFile ? existingFile.ready : false,
+          };
+        })
+      );
     };
     
     const onClosed = () => {
@@ -242,7 +251,7 @@ function JoinSession() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {f.size} · {f.pct === 100 ? "Complete" : f.pct > 0 ? "Downloading" : "Ready"}
+                        {f.size}{f.pct === 100 ? " · Complete" : f.pct > 0 ? " · Downloading" : ""}
                       </p>
                       {f.pct > 0 && f.pct < 100 && (
                         <div className="relative mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">

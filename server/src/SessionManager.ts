@@ -42,11 +42,17 @@ class SessionManager {
   }
 
   public getSession(sessionId: string): Session | undefined {
+    return this.sessions.get(sessionId);
+  }
+
+  public updateHostSocketId(sessionId: string, newHostSocketId: string): boolean {
     const session = this.sessions.get(sessionId);
     if (session) {
+      session.hostSocketId = newHostSocketId;
       session.lastActive = Date.now();
+      return true;
     }
-    return session;
+    return false;
   }
 
   public getSessionByHostSocketId(socketId: string): Session | undefined {

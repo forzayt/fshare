@@ -143,12 +143,17 @@ function HostDashboard() {
 
   useEffect(() => {
     const socket = getSocket();
-    let currentSessionId: string | null = null;
+    let currentSessionId: string | null = localStorage.getItem("fshare_host_session_id");
     
-    socket.emit("host:start", (res: any) => {
+    socket.emit("host:start", { sessionId: currentSessionId }, (res: any) => {
       if (res.success) {
         currentSessionId = res.sessionId;
         setSessionKey(res.sessionId);
+        localStorage.setItem("fshare_host_session_id", res.sessionId);
+        
+        if (res.isResume && res.joiners) {
+          setDevices(res.joiners.map((id: string) => ({ id })));
+        }
       } else {
         setSessionKey("Error creating session");
       }
@@ -171,9 +176,7 @@ function HostDashboard() {
     return () => {
       socket.off("host:joiner_connected", onJoinerConnected);
       socket.off("host:joiner_disconnected", onJoinerDisconnected);
-      if (currentSessionId) {
-        socket.emit("host:shutdown", { sessionId: currentSessionId });
-      }
+      // We no longer shutdown on unmount to allow refresh/cloud-drive behavior
     };
   }, []);
 
@@ -214,6 +217,16 @@ function HostDashboard() {
       rtcHost.destroy();
     };
   }, [sessionKey]);
+
+  const handleShutdown = () => {
+    const socket = getSocket();
+    socket.emit("host:shutdown", { sessionId: sessionKey }, (res: any) => {
+      if (res.success) {
+        localStorage.removeItem("fshare_host_session_id");
+        window.location.href = "/"; // Redirect to home
+      }
+    });
+  };
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
@@ -364,7 +377,10 @@ function HostDashboard() {
                 onChange={setKeepAwake}
                 hint="Prevents sleep"
               />
-              <button className="flex items-center justify-between rounded-2xl bg-destructive/10 px-4 py-3 text-destructive ring-1 ring-destructive/30 hover:bg-destructive/15">
+              <button 
+                onClick={handleShutdown}
+                className="flex items-center justify-between rounded-2xl bg-destructive/10 px-4 py-3 text-destructive ring-1 ring-destructive/30 hover:bg-destructive/15"
+              >
                 <span className="flex items-center gap-2 text-sm font-medium">
                   <Power className="h-4 w-4" />
                   Revoke session now

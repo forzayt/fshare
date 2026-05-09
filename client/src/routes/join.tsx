@@ -55,8 +55,12 @@ function JoinSession() {
     return () => {
       socket.off("session:metadata_updated", onMetadata);
       socket.off("session:closed", onClosed);
+      // If we joined a session, notify the server we are leaving this route
+      if (joined && key) {
+        socket.emit("joiner:leave", { sessionId: key });
+      }
     };
-  }, []);
+  }, [joined, key]);
 
   const webrtcRef = useRef<WebRTCJoiner | null>(null);
 

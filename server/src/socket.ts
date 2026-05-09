@@ -9,15 +9,35 @@ export function setupSocket(io: Server) {
     // --- Host Events ---
     
     // Host starts a new server
-    socket.on('host:start', (callback) => {
-      const sessionId = sessionManager.createSession(socket.id);
-      socket.join(`session_${sessionId}`); // Host joins its own session room
-      console.log(`[Session] Host ${socket.id} created session ${sessionId}`);
+    socket.on('host:start', (payload: { sessionId?: string }, callback) => {
+      let sessionId = payload?.sessionId;
+      let isResume = false;
+
+      if (sessionId) {
+        const session = sessionManager.getSession(sessionId);
+        if (session) {
+          sessionManager.updateHostSocketId(sessionId, socket.id);
+          socket.join(`session_${sessionId}`);
+          isResume = true;
+          console.log(`[Session] Host ${socket.id} resumed session ${sessionId}`);
+        } else {
+          sessionId = sessionManager.createSession(socket.id);
+          socket.join(`session_${sessionId}`);
+          console.log(`[Session] Host ${socket.id} created new session ${sessionId} (resume failed)`);
+        }
+      } else {
+        sessionId = sessionManager.createSession(socket.id);
+        socket.join(`session_${sessionId}`);
+        console.log(`[Session] Host ${socket.id} created session ${sessionId}`);
+      }
       
+      const session = sessionManager.getSession(sessionId);
       if (typeof callback === 'function') {
         callback({ 
           success: true, 
-          sessionId
+          sessionId,
+          isResume,
+          joiners: isResume ? Array.from(session?.joiners || []) : []
         });
       }
     });
@@ -76,12 +96,23 @@ export function setupSocket(io: Server) {
       // Notify host that a new joiner arrived
       io.to(session.hostSocketId).emit('host:joiner_connected', { joinerId: socket.id });
 
-      // Return current metadata to the joiner
       if (typeof callback === 'function') {
         callback({ 
           success: true, 
           metadata: sessionManager.getMetadata(sessionId)
         });
+      }
+    });
+
+    // Joiner leaves a session (route change/manual leave)
+    socket.on('joiner:leave', (payload: { sessionId: string }) => {
+      const { sessionId } = payload;
+      const session = sessionManager.getSession(sessionId);
+      if (session) {
+        console.log(`[Session] Joiner ${socket.id} left session ${sessionId}`);
+        sessionManager.leaveSession(sessionId, socket.id);
+        socket.leave(`session_${sessionId}`);
+        io.to(session.hostSocketId).emit('host:joiner_disconnected', { joinerId: socket.id });
       }
     });
 
@@ -145,16 +176,18 @@ export function setupSocket(io: Server) {
       // 1. Handle Host Disconnection
       const hostedSession = sessionManager.getSessionByHostSocketId(socket.id);
       if (hostedSession) {
-        console.log(`[Session] Host disconnected. Closing session ${hostedSession.id}`);
-        socket.to(`session_${hostedSession.id}`).emit('session:closed');
-        sessionManager.removeSession(hostedSession.id);
+        console.log(`[Session] Host ${socket.id} went offline for session ${hostedSession.id}`);
+        // We DON'T delete the session here anymore, to allow resuming.
+        // We can notify joiners if we want, but usually we just wait for host to come back.
+        // socket.to(`session_${hostedSession.id}`).emit('session:host_offline');
       }
 
-      // 2. Handle Joiner Disconnection (A user could be a host and a joiner in different sessions)
+      // 2. Handle Joiner Disconnection
       const joinerSessions = sessionManager.getSessionsByJoinerSocketId(socket.id);
       joinerSessions.forEach(session => {
         console.log(`[Session] Joiner ${socket.id} disconnected from session ${session.id}`);
         sessionManager.leaveSession(session.id, socket.id);
+        // Only notify if host is still online
         io.to(session.hostSocketId).emit('host:joiner_disconnected', { joinerId: socket.id });
       });
     });

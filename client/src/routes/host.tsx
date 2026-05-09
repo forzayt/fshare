@@ -22,6 +22,16 @@ import { getSocket } from "@/lib/socket";
 import { WebRTCHost } from "@/lib/webrtcHost";
 import { useRef } from "react";
 import { db } from "@/lib/db";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const CHUNK_SIZE = 64 * 1024; // 64 KB
 
@@ -50,6 +60,7 @@ function HostDashboard() {
   const [speed, setSpeed] = useState("0 MB/s");
   const [sent, setSent] = useState("0 MB");
   const [copied, setCopied] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<string | null>(null);
 
   // Load files from DB on mount
   useEffect(() => {
@@ -231,6 +242,32 @@ function HostDashboard() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
+        {/* Deletion Confirmation */}
+        <AlertDialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the file from your local index and stop it from being shared. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  if (fileToDelete) {
+                    handleDeleteFile(fileToDelete);
+                    setFileToDelete(null);
+                  }
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Files */}
         <section className="space-y-5">
           {/* Stats */}
@@ -280,7 +317,7 @@ function HostDashboard() {
                       </p>
                     </div>
                     <button 
-                      onClick={() => handleDeleteFile(f.id)}
+                      onClick={() => setFileToDelete(f.id)}
                       className="rounded-lg p-2 text-muted-foreground opacity-0 transition hover:bg-white/5 hover:text-destructive group-hover:opacity-100"
                     >
                       <Trash2 className="h-4 w-4" />

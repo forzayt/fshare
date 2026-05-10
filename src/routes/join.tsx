@@ -35,6 +35,8 @@ function JoinSession() {
   const [error, setError] = useState("");
   const [files, setFiles] = useState<any[]>([]);
   const [joinedSessionId, setJoinedSessionId] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [step, setStep] = useState<"key" | "nickname">("key");
 
   useEffect(() => {
     const socket = getSocket();
@@ -124,10 +126,19 @@ function JoinSession() {
 
   const handleJoin = () => {
     if (!key.trim()) return;
+    if (step === "key") {
+      setStep("nickname");
+      return;
+    }
+    if (!nickname.trim()) {
+      setError("Please enter a nickname");
+      return;
+    }
+    
     setError("");
     const sessionId = normalizeSessionId(key);
     const socket = getSocket();
-    socket.emit("joiner:join", { sessionId }, (res: any) => {
+    socket.emit("joiner:join", { sessionId, nickname }, (res: any) => {
       if (res.success) {
         setJoined(true);
         setJoinedSessionId(sessionId);
@@ -175,22 +186,46 @@ function JoinSession() {
           <div className="mt-8 flex justify-center">
             {/* Session key */}
             <div className="glass gradient-border w-full max-w-sm rounded-3xl p-5">
-              <p className="text-sm font-semibold">Session key</p>
-              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-3 ring-1 ring-white/5 focus-within:ring-primary/50">
-                <KeyRound className="h-4 w-4 text-primary" />
-                <input
-                  value={key}
-                  onChange={(e) => setKey(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-                  placeholder="A4N9-K72X-Q3LM"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="flex-1 bg-transparent font-mono text-sm tracking-wider outline-none placeholder:text-muted-foreground/60"
-                />
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                12 characters · case insensitive · dashes optional
-              </p>
+              {step === "key" ? (
+                <>
+                  <p className="text-sm font-semibold">Session key</p>
+                  <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-3 ring-1 ring-white/5 focus-within:ring-primary/50">
+                    <KeyRound className="h-4 w-4 text-primary" />
+                    <input
+                      value={key}
+                      onChange={(e) => setKey(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                      placeholder="A4N9-K72X-Q3LM"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="flex-1 bg-transparent font-mono text-sm tracking-wider outline-none placeholder:text-muted-foreground/60"
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    12 characters · case insensitive · dashes optional
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold">Your Nickname</p>
+                  <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-3 ring-1 ring-white/5 focus-within:ring-primary/50">
+                    <ScanLine className="h-4 w-4 text-primary" />
+                    <input
+                      value={nickname}
+                      onChange={(e) => setNickname(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                      placeholder="Enter your name"
+                      autoFocus
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    This will be visible to the host
+                  </p>
+                </>
+              )}
               
               {error && (
                 <p className="mt-2 text-xs text-destructive">{error}</p>
@@ -200,8 +235,18 @@ function JoinSession() {
                 onClick={handleJoin}
                 className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[image:var(--gradient-primary)] px-4 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition-transform hover:scale-[1.01]"
               >
-                Join secure session
+                {step === "key" ? "Continue" : "Join secure session"}
               </button>
+              
+              {step === "nickname" && (
+                <button
+                  onClick={() => setStep("key")}
+                  className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Back to session key
+                </button>
+              )}
+
               <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <ShieldCheck className="h-3.5 w-3.5 text-success" />
                 Verified end-to-end · No account required

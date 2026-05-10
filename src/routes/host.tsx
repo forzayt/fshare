@@ -54,7 +54,7 @@ function HostDashboard() {
   const [keepAwake, setKeepAwake] = useState(true);
   const [sessionKey, setSessionKey] = useState<string>("Connecting...");
   const [files, setFiles] = useState<any[]>([]);
-  const [devices, setDevices] = useState<{ id: string }[]>([]);
+  const [devices, setDevices] = useState<{ id: string, nickname?: string }[]>([]);
   const [speed, setSpeed] = useState("0 MB/s");
   const [sent, setSent] = useState("0 MB");
   const [copied, setCopied] = useState(false);
@@ -180,17 +180,17 @@ function HostDashboard() {
         localStorage.setItem("fshare_host_session_id", res.sessionId);
         
         if (res.isResume && res.joiners) {
-          setDevices(res.joiners.map((id: string) => ({ id })));
+          setDevices(res.joiners);
         }
       } else {
         setSessionKey("Error creating session");
       }
     });
 
-    const onJoinerConnected = (data: { joinerId: string }) => {
+    const onJoinerConnected = (data: { joinerId: string, nickname?: string }) => {
       setDevices(prev => {
         if (prev.find(d => d.id === data.joinerId)) return prev;
-        return [...prev, { id: data.joinerId }];
+        return [...prev, { id: data.joinerId, nickname: data.nickname }];
       });
     };
 
@@ -459,7 +459,7 @@ function HostDashboard() {
                     <span
                       className={`h-2 w-2 rounded-full bg-success animate-pulse`}
                     />
-                    <span className="font-medium">Device {c.id.substring(0, 4)}</span>
+                    <span className="font-medium">{c.nickname || `Device ${c.id.substring(0, 4)}`}</span>
                   </span>
                   <span className="text-xs text-muted-foreground">Connected</span>
                 </li>

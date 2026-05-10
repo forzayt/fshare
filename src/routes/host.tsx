@@ -407,7 +407,7 @@ function HostDashboard() {
                     </div>
                     <button 
                       onClick={() => setFileToDelete(f.id)}
-                      className="rounded-lg p-2 text-muted-foreground opacity-0 transition hover:bg-white/5 hover:text-destructive group-hover:opacity-100"
+                      className="rounded-lg p-2 text-muted-foreground transition hover:bg-white/5 hover:text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

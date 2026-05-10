@@ -83,6 +83,18 @@ function HostDashboard() {
       for (const file of newFilesList) {
         const fileId = Math.random().toString(36).substr(2, 9);
         
+        // Add to state immediately with indexing status
+        const initialFile = {
+          id: fileId,
+          name: file.name,
+          size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
+          pct: 0,
+          Icon: FileText,
+          fileObj: file,
+          isIndexing: true,
+        };
+        setFiles((prev) => [...prev, initialFile]);
+
         // Save metadata to DB
         await db.saveFileMetadata({
           id: fileId,
@@ -96,6 +108,8 @@ function HostDashboard() {
         // Save chunks to DB (streaming)
         let offset = 0;
         let chunkIndex = 0;
+        let lastReportedPct = 0;
+
         while (offset < file.size) {
           const slice = file.slice(offset, offset + CHUNK_SIZE);
           const buffer = await slice.arrayBuffer();
@@ -106,17 +120,17 @@ function HostDashboard() {
           });
           offset += buffer.byteLength;
           chunkIndex++;
+
+          // Throttle state updates to avoid excessive re-renders
+          const currentPct = Math.floor((offset / file.size) * 100);
+          if (currentPct > lastReportedPct) {
+            lastReportedPct = currentPct;
+            setFiles(prev => prev.map(f => f.id === fileId ? { ...f, pct: currentPct } : f));
+          }
         }
 
-        const newFile = {
-          id: fileId,
-          name: file.name,
-          size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-          pct: 100,
-          Icon: FileText,
-          fileObj: file,
-        };
-        setFiles((prev) => [...prev, newFile]);
+        // Mark as finished indexing
+        setFiles(prev => prev.map(f => f.id === fileId ? { ...f, pct: 100, isIndexing: false } : f));
       }
     }
   };
@@ -388,7 +402,7 @@ function HostDashboard() {
                         </span>
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {f.size} · {f.pct === 100 ? "Complete" : "Waiting"}
+                        {f.size} · {f.isIndexing ? "Indexing..." : (f.pct === 100 ? "Ready" : "Transferring")}
                       </p>
                     </div>
                     <button 

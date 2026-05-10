@@ -110,6 +110,10 @@ export class WebRTCJoiner {
   };
 
   public requestFile(fileId: string) {
-    this.socket.emit("joiner:request_file", { sessionId: this.sessionId, fileId });
+    this.socket.emit("joiner:request_file", { sessionId: this.sessionId, fileId }, (res: any) => {
+      if (res && !res.success) {
+        console.error("Failed to request file:", res.error);
+      }
+    });
   }
 }

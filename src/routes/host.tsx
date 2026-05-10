@@ -185,18 +185,33 @@ function HostDashboard() {
   const filesRef = useRef(files);
   filesRef.current = files;
 
+  const transfersRef = useRef<Record<string, Record<string, number>>>({});
+
   useEffect(() => {
     if (!sessionKey || sessionKey === "Connecting..." || sessionKey === "Error creating session") return;
     
     const socket = getSocket();
     
+    // Reset transfers when session starts/resumes
+    transfersRef.current = {};
+
     const rtcHost = new WebRTCHost(socket, sessionKey, (fileId, joinerId, sentBytes, totalBytes) => {
+      // Track progress per joiner for this file
+      if (!transfersRef.current[fileId]) transfersRef.current[fileId] = {};
+      transfersRef.current[fileId][joinerId] = Math.round((sentBytes / totalBytes) * 100);
+
+      // Find max progress across all joiners for this file
+      const maxPct = Math.max(...Object.values(transfersRef.current[fileId]));
+
       setFiles(prev => prev.map(f => {
         if (f.id === fileId) {
-          return { ...f, pct: Math.round((sentBytes / totalBytes) * 100) };
+          // Only update if it's a meaningful change to avoid unnecessary re-renders
+          if (f.pct === maxPct) return f;
+          return { ...f, pct: maxPct };
         }
         return f;
       }));
+      
       setSent((prevSent) => {
         const currentMB = parseFloat(prevSent.replace(" MB", "")) || 0;
         return (currentMB + (64 / 1024)).toFixed(2) + " MB";

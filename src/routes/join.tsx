@@ -70,12 +70,20 @@ function JoinSession() {
     };
   }, [joined, key]);
 
+  const normalizeSessionId = (input: string) => {
+    const raw = input.replace(/-/g, "").toUpperCase();
+    return raw.length === 12
+      ? `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`
+      : raw;
+  };
+
   const webrtcRef = useRef<WebRTCJoiner | null>(null);
 
   useEffect(() => {
     if (joined && key) {
+      const sessionId = normalizeSessionId(key);
       const socket = getSocket();
-      const rtcJoiner = new WebRTCJoiner(socket, key, 
+      const rtcJoiner = new WebRTCJoiner(socket, sessionId, 
         (fileId, receivedBytes, totalBytes) => {
           setFiles(prev => prev.map(f => {
             if (f.id === fileId) {
@@ -111,11 +119,7 @@ function JoinSession() {
   const handleJoin = () => {
     if (!key.trim()) return;
     setError("");
-    // Normalise: strip dashes and reformat as XXXX-XXXX-XXXX
-    const raw = key.replace(/-/g, "").toUpperCase();
-    const sessionId = raw.length === 12
-      ? `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`
-      : raw;
+    const sessionId = normalizeSessionId(key);
     const socket = getSocket();
     socket.emit("joiner:join", { sessionId }, (res: any) => {
       if (res.success) {

@@ -6,6 +6,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/SiteHeader";
+import { useWakeLock } from "@/hooks/useWakeLock";
 
 function NotFoundComponent() {
   return (
@@ -72,6 +73,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useWakeLock(true);
 
   return (
     <QueryClientProvider client={queryClient}>

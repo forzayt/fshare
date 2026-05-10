@@ -230,16 +230,7 @@ function Landing() {
         </div>
       </section>
 
-      {/* Sticky mobile CTA */}
-      <div className="sticky bottom-3 z-40 mx-auto w-full max-w-md px-4 sm:hidden">
-        <Link
-          to="/host"
-          className="glass-strong flex items-center justify-center gap-2 rounded-2xl bg-[image:var(--gradient-primary)] px-5 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow-lg)]"
-        >
-          <Zap className="h-4 w-4" />
-          Start Secure Session
-        </Link>
-      </div>
+      
 
       <footer className="mx-auto max-w-6xl px-4 pb-8 pt-4 text-center text-xs text-muted-foreground">
         © {new Date().getFullYear()} Fshare · Built for a private internet.

@@ -52,7 +52,10 @@ function Landing() {
             </h1>
             <p className="mt-4 max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
               Direct device-to-device transfer in your browser. Drop a file, share the
-              link — done. Nothing ever lands on a server.
+              link — done. Nothing ever lands on a server.{" "}
+              <Link to="/releases" className="text-primary hover:underline underline-offset-4 font-medium inline-flex items-center gap-1">
+                Check out the release notes <ArrowRight className="h-3 w-3" />
+              </Link>
             </p>
 
             <div className="mt-7 flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center">

@@ -88,7 +88,12 @@ function JoinSession() {
         (fileId, receivedBytes, totalBytes) => {
           setFiles(prev => prev.map(f => {
             if (f.id === fileId) {
-              return { ...f, pct: Math.round((receivedBytes / totalBytes) * 100), ready: false };
+              return { 
+                ...f, 
+                pct: Math.round((receivedBytes / totalBytes) * 100), 
+                ready: false,
+                isConnecting: false 
+              };
             }
             return f;
           }));
@@ -104,7 +109,7 @@ function JoinSession() {
           a.click();
           window.URL.revokeObjectURL(url);
           
-          setFiles(prev => prev.map(f => f.id === fileId ? { ...f, pct: 100, ready: true } : f));
+          setFiles(prev => prev.map(f => f.id === fileId ? { ...f, pct: 100, ready: true, isConnecting: false } : f));
         }
       );
       
@@ -137,6 +142,7 @@ function JoinSession() {
 
   const handleDownloadAll = () => {
     if (webrtcRef.current) {
+      setFiles(prev => prev.map(f => ({ ...f, isConnecting: true })));
       files.forEach((f) => {
         webrtcRef.current?.requestFile(f.id.toString());
       });
@@ -145,6 +151,7 @@ function JoinSession() {
 
   const handleDownloadSingle = (fileId: string) => {
     if (webrtcRef.current) {
+      setFiles(prev => prev.map(f => f.id === fileId ? { ...f, isConnecting: true } : f));
       webrtcRef.current.requestFile(fileId.toString());
     }
   };
@@ -261,23 +268,28 @@ function JoinSession() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {f.size}{f.pct === 100 ? " · Complete" : f.pct > 0 ? " · Downloading" : ""}
+                        {f.size}{f.isConnecting ? " · Connecting..." : f.pct === 100 ? " · Complete" : f.pct > 0 ? " · Downloading" : ""}
                       </p>
-                      {f.pct > 0 && f.pct < 100 && (
+                      {(f.isConnecting || (f.pct > 0 && f.pct < 100)) && (
                         <div className="relative mt-1.5 h-1 overflow-hidden rounded-full bg-white/5">
                           <div
-                            className="neon-progress h-full rounded-full transition-all"
-                            style={{ width: `${f.pct}%` }}
+                            className={`neon-progress h-full rounded-full transition-all ${f.isConnecting ? "w-full animate-pulse" : ""}`}
+                            style={{ width: f.isConnecting ? "100%" : `${f.pct}%` }}
                           />
                         </div>
                       )}
                     </div>
                     <button 
                       onClick={() => handleDownloadSingle(f.id)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-medium ring-1 ring-white/5 hover:bg-white/10"
+                      disabled={f.isConnecting || (f.pct > 0 && f.pct < 100)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-1.5 text-xs font-medium ring-1 ring-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Download className="h-3.5 w-3.5 text-primary" />
-                      Get
+                      {f.isConnecting ? (
+                        <span className="h-3.5 w-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5 text-primary" />
+                      )}
+                      {f.isConnecting ? "Wait" : "Get"}
                     </button>
                   </li>
                 );

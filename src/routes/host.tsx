@@ -78,26 +78,35 @@ function HostDashboard() {
   }, []);
 
   const handleAddFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFilesList = Array.from(e.target.files);
-      for (const file of newFilesList) {
-        const fileId = Math.random().toString(36).substr(2, 9);
-        
-        // Add to state immediately with indexing status
-        const initialFile = {
-          id: fileId,
-          name: file.name,
-          size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-          pct: 0,
-          Icon: FileText,
-          fileObj: file,
-          isIndexing: true,
-        };
-        setFiles((prev) => [...prev, initialFile]);
+    if (!e.target.files) return;
+    const newFilesList = Array.from(e.target.files);
+    e.target.value = ""; // Reset input so same file can be added again if deleted
 
+    // Generate IDs and add all to state immediately for responsiveness
+    const filesWithContext = newFilesList.map(file => ({
+      file,
+      id: Math.random().toString(36).substr(2, 9)
+    }));
+
+    setFiles((prev) => [
+      ...prev,
+      ...filesWithContext.map(({ file, id }) => ({
+        id,
+        name: file.name,
+        size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
+        pct: 0,
+        Icon: FileText,
+        fileObj: file,
+        isIndexing: true,
+      }))
+    ]);
+
+    // Process indexing for each file (can run concurrently)
+    filesWithContext.forEach(async ({ file, id }) => {
+      try {
         // Save metadata to DB
         await db.saveFileMetadata({
-          id: fileId,
+          id,
           name: file.name,
           size: file.size,
           type: file.type,
@@ -114,25 +123,29 @@ function HostDashboard() {
           const slice = file.slice(offset, offset + CHUNK_SIZE);
           const buffer = await slice.arrayBuffer();
           await db.saveChunk({
-            fileId,
+            fileId: id,
             index: chunkIndex,
             data: buffer
           });
           offset += buffer.byteLength;
           chunkIndex++;
 
-          // Throttle state updates to avoid excessive re-renders
+          // Throttle state updates
           const currentPct = Math.floor((offset / file.size) * 100);
           if (currentPct > lastReportedPct) {
             lastReportedPct = currentPct;
-            setFiles(prev => prev.map(f => f.id === fileId ? { ...f, pct: currentPct } : f));
+            setFiles(prev => prev.map(f => f.id === id ? { ...f, pct: currentPct } : f));
           }
         }
 
-        // Mark as finished indexing
-        setFiles(prev => prev.map(f => f.id === fileId ? { ...f, pct: 100, isIndexing: false } : f));
+        // Finalize indexing status
+        setFiles(prev => prev.map(f => f.id === id ? { ...f, pct: 100, isIndexing: false } : f));
+      } catch (err) {
+        console.error("Error indexing file:", err);
+        // Remove file from list if indexing failed
+        setFiles(prev => prev.filter(f => f.id !== id));
       }
-    }
+    });
   };
 
   const handleDeleteFile = async (id: string) => {
@@ -145,7 +158,7 @@ function HostDashboard() {
       const socket = getSocket();
       socket.emit("host:update_metadata", {
         sessionId: sessionKey,
-        metadata: files.map(f => ({
+        metadata: files.filter(f => !f.isIndexing).map(f => ({
           id: f.id.toString(),
           name: f.name,
           size: f.size,

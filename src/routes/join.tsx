@@ -34,6 +34,7 @@ function JoinSession() {
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState("");
   const [files, setFiles] = useState<any[]>([]);
+  const [joinedSessionId, setJoinedSessionId] = useState("");
 
   useEffect(() => {
     const socket = getSocket();
@@ -124,6 +125,7 @@ function JoinSession() {
     socket.emit("joiner:join", { sessionId }, (res: any) => {
       if (res.success) {
         setJoined(true);
+        setJoinedSessionId(sessionId);
         if (res.metadata) {
           setFiles(res.metadata.map((f: any) => ({ ...f, pct: 0 })));
         }
@@ -209,7 +211,11 @@ function JoinSession() {
               </div>
               <div>
                 <p className="text-sm font-semibold">Connected to host</p>
-                <p className="text-xs text-muted-foreground">
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Session ID:</span>
+                  <code className="text-[10px] font-mono text-primary">{joinedSessionId}</code>
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground/60">
                   Encrypted channel · {files.length} files available
                 </p>
               </div>
